@@ -11,34 +11,34 @@ class RelationExtractor(nn.Module):
         super(RelationExtractor, self).__init__()
         bert_model, pretrained_weights = transformers.DistilBertModel, 'distilbert-base-uncased'
         self.bert_model = bert_model.from_pretrained(pretrained_weights)
-        self.info_transform_layer = nn.LSTMCell(input_size=768, hidden_size=128)
-        self.classifer = nn.Linear(in_features=128, out_features=1)
+        self.rel_attn = nn.Parameter(torch.randn(1, 768))
+        self.rel_attn.requires_grad = True
+        self.rel_classifer = nn.Linear(in_features=768, out_features=3)
+        self.proj_layer = nn.Linear(in_features=768, out_features=1)
 
-    def forward(self, inputs, masks):
+    def forward(self, inputs, ent_pos):
         """
-        a pre-trained BERT is used to learn the embedding of each sentence. A LSTM layer is considered as a
-        information transformation layer that indicates the relation information construction in each sentence.
-        problems to investigate: 1. Is that LSTM layer better than BERT in terms of modeling the whole text? 2. Is
-        there a better way to replace the LSTM layer?
-        :param inputs: a list of tokens with the BERT special token
-        added. format: [[[idx1, idx2...],[idx1,...]], [[idx1..],[idx3..]]] (batch*num_sent*num_words)
-        :param masks: a list of 2-D narry that represents the real tokens and paddings. format: [num_sent*num_words, num_sent*num_words...]
-        :return: a list of relation classification results.[cls1, cls2, ...]
+        a pre-trained BERT is used to learn the embedding of each sentence. relation is learned by attending the
+        embedding of each entity. Entities are scored with a logistic layer.
+        :param inputs: a list of tokens with the
+        BERT special token added. format: [[[idx1, idx2...],[idx1,...]], [[idx1..],[idx3..]]] (
+        batch*words)
+        :param ent_pos: a list of the positions of entities in each sentence group.
+        format: [batch_size*num_ent] e.g., [[0,1],[2,5,6]]
+        :return: a list of relation classification results.[cls1,
+        cls2, ...]
+        TODO: batch process in some computing stages.
         """
-        classifications = []
-        for i in range(len(inputs)):
-            tensor_input = torch.Tensor(inputs[i]).long()
-            with torch.no_grad():
-                last_hidden_states = self.bert_model(tensor_input, attention_mask=torch.Tensor(masks[i]))
-                # features dimension: num_sent*768
-                features = last_hidden_states[0][:, 0, :]
-            for j in range(len(features)):
-                if j == 0:
-                    h, c = self.info_transform_layer(features[j].unsqueeze(dim=0))
-                    prev_h, prev_c = h, c
-                else:
-                    h, c = self.info_transform_layer(features[j].unsqueeze(dim=0), (prev_h, prev_c))
-                    prev_h, prev_c = h, c
-            classification = self.classifer(h)
-            classifications.append(classification)
-        return classifications
+        encoding = self.bert_model(inputs, return_dict=False)
+        # encoding[0] is the hidden state: batch_size*seq_length*hidden_size
+        ent_score_list = []
+        rel_result_list = []
+        for i in range(encoding[0].shape[0]):
+            ent_context_emb = encoding[0][i][ent_pos[i]]  # num_ent * hidden_size
+            attn_weights = torch.softmax(torch.matmul(ent_context_emb, self.rel_attn.T) / torch.sqrt(torch.tensor(768)), dim=0)  # num_ent * 1
+            rel_attn_results = torch.matmul(ent_context_emb.T, attn_weights)  # hidden_size * 1
+            rel_result = torch.softmax(self.rel_classifer(rel_attn_results.T), dim=1) # 1*num_class
+            rel_result_list.append(rel_result)
+            ent_score = torch.sigmoid(self.proj_layer(ent_context_emb)).squeeze()
+            ent_score_list.append(ent_score)
+        return rel_result_list, ent_score_list
