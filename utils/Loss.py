@@ -10,8 +10,9 @@ def rel_classify_loss(rel_list_pred, rel_list_real):
     :return: the loss of relation classification
     """
     rel_pred = torch.stack(rel_list_pred).squeeze()
-    rel_real = torch.Tensor(rel_list_real)
-    rel_class_loss = nn.CrossEntropyLoss(rel_pred, rel_real)
+    rel_real = torch.Tensor(rel_list_real).long()
+    loss_function = nn.CrossEntropyLoss()
+    rel_class_loss = loss_function(rel_pred, rel_real)
     return rel_class_loss
 
 
@@ -22,7 +23,8 @@ def ent_detect_loss(ent_score_list, real_ent_list):
     :param real_ent_list: A list of 1-0 indicators of participated entities. Format:[[1,0],[0,1],...]
     :return: the loss of entity classification
     """
-    ent_score_pred = torch.cat(ent_score_list).numel()
+    ent_score_pred = torch.cat(ent_score_list)
     ent_indicators = torch.Tensor([indicator for batch in real_ent_list for indicator in batch])
-    ent_class_loss = nn.BCELoss(ent_score_pred, ent_indicators)
+    loss_function = nn.BCELoss()
+    ent_class_loss = loss_function(ent_score_pred, ent_indicators)
     return ent_class_loss
