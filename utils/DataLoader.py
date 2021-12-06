@@ -8,6 +8,8 @@ class TrainDataLoader:
 
     def __init__(self, filePath, batch_size, cuda):
         inputs, ent_list, rel_list, ent_indicator_list = self.read_file(filePath)
+        if cuda:
+            inputs = inputs.cuda()
         self.inputs = [inputs[i:i + batch_size] for i in range(0, len(ent_list), batch_size)]
         self.ent_list = [ent_list[i:i + batch_size] for i in range(0, len(ent_list), batch_size)]
         self.rel_list = [rel_list[i:i + batch_size] for i in range(0, len(ent_list), batch_size)]
@@ -34,7 +36,7 @@ class TrainDataLoader:
             ent_list.append([first_entity, second_entity, third_entity])
             rel = label2id[d['relation']]
             rel_list.append(rel)
-            ent_indicator_list.append([1,1,1])
+            ent_indicator_list.append([1, 1, 1])
         inputs = tokenizer(sent_list, padding=True, truncation=True, return_tensors="pt")
         inputs = inputs["input_ids"]  # num_instances*seq_length(512)
         return inputs, ent_list, rel_list, ent_indicator_list

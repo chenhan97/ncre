@@ -9,10 +9,12 @@ def train(args):
     # initilize the model
     re_model = re_m.RelationExtractor()
     optimizer = torch.optim.Adam(re_model.parameters(), lr=0.001)
+    if args.gpu:
+        re_model = re_model.cuda()
     logging.basicConfig(filename='trainlog', filemode='a')
 
     # process data
-    dataloader = DataLoader.TrainDataLoader(args.train_data, args.batch_size, False)
+    dataloader = DataLoader.TrainDataLoader(args.train_data, args.batch_size, args.gpu)
 
     # training loop
     for i in range(num_iter):
