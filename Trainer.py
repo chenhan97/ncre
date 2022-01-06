@@ -50,8 +50,17 @@ def test(args, i):
     re_model.eval()
     dataloader = DataLoader.TrainDataLoader(args.train_data, args.batch_size, args.gpu)
     num_batch = dataloader.get_num_batch()
+    all_rel_pred = []
+    all_real_rel = []
     for j in range(num_batch):
         batch_inputs, batch_ent, batch_rel, batch_indicator = dataloader.next()
         rel_result_list, ent_score_list = re_model(batch_inputs, batch_ent)
         rel_pred = torch.stack(rel_result_list).squeeze()
-        print(torch.softmax(rel_pred, dim=1), batch_rel)
+        rep_pred_list = torch.argmax(rel_pred, dim=1).tolist()
+        all_rel_pred += rep_pred_list
+        all_real_rel += batch_rel
+    acc_counter = 0
+    for i in range(len(all_rel_pred)):
+        if all_rel_pred[i] == all_real_rel[i]:
+            acc_counter += 1
+    print("Test Accuracy: ", acc_counter/len(all_rel_pred))
