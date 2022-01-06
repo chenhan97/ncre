@@ -1,7 +1,6 @@
 import torch
 from utils import DataLoader, Loss
 from model import re_m
-import logging
 
 
 def train(args):
@@ -11,7 +10,6 @@ def train(args):
     optimizer = torch.optim.Adam(re_model.parameters(), lr=0.001)
     if args.gpu:
         re_model = re_model.cuda()
-    logging.basicConfig(filename='trainlog', filemode='a')
 
     # process data
     dataloader = DataLoader.TrainDataLoader(args.train_data, args.batch_size, args.gpu)
@@ -34,7 +32,8 @@ def train(args):
             avg_loss += loss.item()
             loss.backward()
             optimizer.step()
-        torch.save(re_model.state_dict(), args.save_model_dir + "check_point" + str(i))
-        logging.info("Iter: ", i, " Avg Loss: ", avg_loss / num_batch)
-        logging.info("Iter: ", i, " Avg Rel Loss: ", avg_rel_loss / num_batch)
-        logging.info("Iter: ", i, " Avg Ent Loss: ", avg_ent_loss / num_batch)
+        if num_iter % 10 == 0:
+            torch.save(re_model.state_dict(), args.save_model_dir + "/check_point" + str(i))
+        print("Iter: ", i, " Avg Loss: ", avg_loss / num_batch)
+        print("Iter: ", i, " Avg Rel Loss: ", avg_rel_loss / num_batch)
+        print("Iter: ", i, " Avg Ent Loss: ", avg_ent_loss / num_batch)
