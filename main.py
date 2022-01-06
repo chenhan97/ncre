@@ -8,7 +8,7 @@ def main():
     parser.add_argument('--save_model_dir', type=str, default='saved_model')
     parser.add_argument('--num_iter', type=int, default=150)
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--gpu', type=bool, default=False)
+    parser.add_argument('--gpu', type=bool, default=True)
 
     args = parser.parse_args()
     trainer = Trainer.train(args)

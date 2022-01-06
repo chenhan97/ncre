@@ -32,7 +32,7 @@ def train(args):
             avg_loss += loss.item()
             loss.backward()
             optimizer.step()
-        if num_iter % 10 == 0:
+        if i % 10 == 0:
             torch.save(re_model.state_dict(), args.save_model_dir + "/check_point" + str(i))
         print("Iter: ", i, " Avg Loss: ", avg_loss / num_batch)
         print("Iter: ", i, " Avg Rel Loss: ", avg_rel_loss / num_batch)

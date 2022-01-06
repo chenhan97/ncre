@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+gpu = torch.cuda.is_available()
 
 def rel_classify_loss(rel_list_pred, rel_list_real):
     """
@@ -11,7 +12,10 @@ def rel_classify_loss(rel_list_pred, rel_list_real):
     """
     rel_pred = torch.stack(rel_list_pred).squeeze()
     rel_real = torch.Tensor(rel_list_real).long()
-    loss_function = nn.CrossEntropyLoss().cuda()
+    loss_function = nn.CrossEntropyLoss()
+    if gpu:
+        loss_function = loss_function.cuda()
+        rel_real = rel_real.cuda()
     rel_class_loss = loss_function(rel_pred, rel_real)
     return rel_class_loss
 
@@ -25,6 +29,9 @@ def ent_detect_loss(ent_score_list, real_ent_list):
     """
     ent_score_pred = torch.cat(ent_score_list)
     ent_indicators = torch.Tensor([indicator for batch in real_ent_list for indicator in batch])
-    loss_function = nn.BCELoss().cuda()
+    loss_function = nn.BCELoss()
+    if gpu:
+        loss_function = loss_function.cuda()
+        ent_indicators = ent_indicators.cuda()
     ent_class_loss = loss_function(ent_score_pred, ent_indicators)
     return ent_class_loss

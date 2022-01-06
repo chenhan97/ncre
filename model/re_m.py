@@ -36,6 +36,8 @@ class RelationExtractor(nn.Module):
         rel_result_list = []
         for i in range(encoding[0].shape[0]):
             tentative_ent_context = torch.zeros((1, encoding[0].shape[2]))
+            if gpu:
+                tentative_ent_context = tentative_ent_context.cuda()
             for ent in ent_pos[i]:
                 if ent[0] == ent[1]:
                     ent_context_emb = encoding[0][i][ent[0]]
@@ -44,7 +46,7 @@ class RelationExtractor(nn.Module):
                     ent_context_emb = torch.max_pool2d(ent_embs.reshape((1, 1, ent_embs.shape[0], ent_embs.shape[1])), kernel_size=(ent[1]-ent[0]+1, 1))
                 tentative_ent_context = torch.cat((tentative_ent_context, ent_context_emb.reshape((1,-1))), dim=0)
             ent_context_emb = tentative_ent_context[1:] # num_ent * hidden_size
-            attn_weights = torch.softmax(torch.matmul(ent_context_emb, self.rel_attn.T) / torch.sqrt(torch.tensor(768)), dim=0)  # num_ent * 5
+            attn_weights = torch.softmax(torch.matmul(ent_context_emb, self.rel_attn.T) / torch.sqrt(torch.tensor(768.0)), dim=0)  # num_ent * 5
             rel_attn_results = torch.matmul(ent_context_emb.T, attn_weights)  # hidden_size * 5
             rel_result = torch.softmax(self.rel_classifer(rel_attn_results.T), dim=0)  # 1*num_class
             rel_result_list.append(rel_result)
