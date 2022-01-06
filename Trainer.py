@@ -37,3 +37,21 @@ def train(args):
         print("Iter: ", i, " Avg Loss: ", avg_loss / num_batch)
         print("Iter: ", i, " Avg Rel Loss: ", avg_rel_loss / num_batch)
         print("Iter: ", i, " Avg Ent Loss: ", avg_ent_loss / num_batch)
+
+
+def test(args, i):
+    '''
+    TODO: a dataloader for test stage
+    '''
+    re_model = re_m.RelationExtractor()
+    if args.gpu:
+        re_model = re_model.cuda()
+    re_model.load_state_dict(torch.load(args.save_model_dir + "/check_point" + str(i)))
+    re_model.eval()
+    dataloader = DataLoader.TrainDataLoader(args.train_data, args.batch_size, args.gpu)
+    num_batch = dataloader.get_num_batch()
+    for j in range(num_batch):
+        batch_inputs, batch_ent, batch_rel, batch_indicator = dataloader.next()
+        rel_result_list, ent_score_list = re_model(batch_inputs, batch_ent)
+        rel_pred = torch.stack(rel_result_list).squeeze()
+        print(torch.softmax(rel_pred, dim=1), batch_rel)
