@@ -17,6 +17,12 @@ class RelationExtractor(nn.Module):
         for param in self.bert_model.parameters():
             param.requires_grad = False
 
+        self.A_r_matrix = nn.Linear(in_features=5, out_features=768)
+        self.V_r_layer = nn.Sequential(nn.Linear(1536, 512), nn.ReLU(), nn.Linear(512, 5), nn.Sigmoid())
+        self.gate_layer = nn.Linear(in_features=1536, out_features=768)
+        self.predict_layer = nn.Sequential(nn.Linear(2304, 512), nn.ReLU(), nn.Linear(512, 5))
+
+
     def forward(self, inputs, ent_pos):
         """
         a pre-trained BERT is used to learn the embedding of each sentence. relation is learned by attending the
@@ -46,10 +52,32 @@ class RelationExtractor(nn.Module):
                     ent_context_emb = torch.max_pool2d(ent_embs.reshape((1, 1, ent_embs.shape[0], ent_embs.shape[1])), kernel_size=(ent[1]-ent[0]+1, 1))
                 tentative_ent_context = torch.cat((tentative_ent_context, ent_context_emb.reshape((1,-1))), dim=0)
             ent_context_emb = tentative_ent_context[1:] # num_ent * hidden_size
+            init_first_ent_emb = ent_context_emb[0]
+            init_second_ent_emb = ent_context_emb[1]
+            init_third_ent_emb = ent_context_emb[2]
+
+            for iter_ in range(5):
+                update_first_ent_emb = torch.mul(self.A_r_matrix(self.V_r_layer(torch.cat((init_second_ent_emb, init_third_ent_emb), dim=0))), init_first_ent_emb)
+                update_second_ent_emb = torch.mul(self.A_r_matrix(self.V_r_layer(torch.cat((init_first_ent_emb, init_third_ent_emb), dim=0))), init_second_ent_emb)
+                update_third_ent_emb = torch.mul(self.A_r_matrix(self.V_r_layer(torch.cat((init_first_ent_emb, init_second_ent_emb), dim=0))), init_third_ent_emb)
+                first_gate_score = torch.sigmoid(self.gate_layer(torch.cat((update_first_ent_emb, init_first_ent_emb))))
+                final_first_ent_emb = first_gate_score * init_first_ent_emb + (1-first_gate_score) * update_first_ent_emb
+                second_gate_score = torch.sigmoid(self.gate_layer(torch.cat((update_second_ent_emb, init_second_ent_emb))))
+                final_second_ent_emb = second_gate_score * init_second_ent_emb + (1-second_gate_score) * update_second_ent_emb
+                third_gate_score = torch.sigmoid(self.gate_layer(torch.cat((update_third_ent_emb, init_third_ent_emb))))
+                final_third_ent_emb = third_gate_score * init_third_ent_emb + (1-third_gate_score) * update_third_ent_emb
+                init_first_ent_emb = final_first_ent_emb
+                init_second_ent_emb = final_second_ent_emb
+                init_third_ent_emb = final_third_ent_emb
+            rel_result = self.predict_layer(torch.flatten(ent_context_emb)).unsqueeze(dim=0)
+            rel_result_list.append(rel_result)
+
+            '''
             attn_weights = torch.softmax(torch.matmul(ent_context_emb, self.rel_attn.T) / torch.sqrt(torch.tensor(768.0)), dim=0)  # num_ent * 5
             rel_attn_results = torch.matmul(ent_context_emb.T, attn_weights)  # hidden_size * 5
-            rel_result = torch.softmax(self.rel_classifer(rel_attn_results.T), dim=0)  # 1*num_class
-            rel_result_list.append(rel_result)
+            rel_result = self.rel_classifer(rel_attn_results.T)  # 1*num_class
+            rel_result_list.append(rel_result)'''
+
             ent_score = torch.sigmoid(self.proj_layer(ent_context_emb)).squeeze()
             ent_score_list.append(ent_score)
         return rel_result_list, ent_score_list
